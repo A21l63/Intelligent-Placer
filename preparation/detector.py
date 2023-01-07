@@ -1,49 +1,26 @@
-import numpy as np
-import matplotlib.pyplot as plt
-from imageio import imread, imsave
-from skimage.color import rgb2gray, label2rgb
-from skimage.transform import hough_line, hough_line_peaks, warp, AffineTransform
-from skimage.feature import canny, corner_harris, corner_peaks, corner_fast, corner_subpix, match_descriptors, ORB
-from skimage.filters import roberts, sobel, scharr, prewitt
-from skimage.segmentation import watershed
-from skimage.morphology import binary_closing, binary_erosion
-from skimage.measure import ransac
-from skimage import util
-from scipy import ndimage as ndi
-import os
+def show_image(image):
+    cv2.imshow('image', image)
+    c = cv2.waitKey()
+    if c >= 0: return -1
+    return 0
 
-
-picture = util.invert(rgb2gray(imread(os.path.join("../", "tsk_2.jpg"))))
-
-
-# Эти параметры можно менять
-canny_sigma = 2.75
-canny_low_threshold = 0.2
-canny_high_threshold = 0.6
-binary_closing_footprint_width = 5
-binary_closing_footprint = np.ones((binary_closing_footprint_width, binary_closing_footprint_width))
 
 def correct_mask_borders_after_canny(canny_result, border_width=3):
-    # заполняем полосы толщиной border_width нулями
-    canny_result[:border_width,:] = 0
-    canny_result[:,:border_width] = 0
-    canny_result[-border_width:,:] = 0
-    canny_result[:,-border_width:] = 0
-
-my_edge_map = binary_closing(
-    canny(
-        picture,
-        sigma=canny_sigma,
-        low_threshold=canny_low_threshold,
-        high_threshold=canny_high_threshold,
-    ),
-    footprint=binary_closing_footprint
-)
-correct_mask_borders_after_canny(my_edge_map)
-my_edge_segmentation = ndi.binary_fill_holes(my_edge_map)
-
-plt.imshow(label2rgb(my_edge_segmentation, image=picture))
-result_image_file = os.path.join("../output", "res.png")
-plt.savefig(result_image_file, dpi=150)
+    canny_result[:border_width, :] = 0
+    canny_result[:, :border_width] = 0
+    canny_result[-border_width:, :] = 0
+    canny_result[:, -border_width:] = 0
 
 
+def findContours():
+    image = cv2.imread('../test_inputs/pic1.jpg')
+
+    img_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    img_gray = cv2.GaussianBlur(img_gray, (5, 5), 0)
+    canny = cv2.Canny(img_gray, 100, 200)
+    correct_mask_borders_after_canny(canny)
+
+    contours, hierarchy = cv2.findContours(canny, cv2.RETR_LIST, cv2.CHAIN_APPROX_TC89_L1)
+    img = cv2.drawContours(image, contours, -1, (255, 255, 0), 2)
+    show_image(img)
+    return contours
