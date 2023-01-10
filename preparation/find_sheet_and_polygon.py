@@ -5,7 +5,6 @@ def sheet_detector(contours):
     sorted_contours = sorted(contours, key=lambda x: cv2.contourArea(x), reverse=True)
     return sorted_contours[0]
 
-
 def polygon_detector(contours, sheet):
     possible_polygons = []
     for contour in contours:
