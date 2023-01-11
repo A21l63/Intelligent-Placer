@@ -1,49 +1,80 @@
-import sys
 import numpy as np
-import cv2 as cv
+import cv2
 import math
 
-hsv_min = np.array((0, 54, 5), np.uint8)
-hsv_max = np.array((187, 255, 253), np.uint8)
 
-color_blue = (255, 0, 0)
-color_yellow = (0, 255, 255)
+def cart2pol(x, y):
+    theta = np.arctan2(y, x)
+    rho = np.hypot(x, y)
+    return theta, rho
 
 
-def rotate_a(contours, path):
-    img = cv.imread(path)
+def pol2cart(theta, rho):
+    x = rho * np.cos(theta)
+    y = rho * np.sin(theta)
+    return x, y
 
-    # перебираем все найденные контуры в цикле
-    for cnt in contours:
-        rect = cv.minAreaRect(cnt)  # пытаемся вписать прямоугольник
-        box = cv.boxPoints(rect)  # поиск четырех вершин прямоугольника
-        box = np.int0(box)  # округление координат
-        center = (int(rect[0][0]), int(rect[0][1]))
-        area = int(rect[1][0] * rect[1][1])  # вычисление площади
 
-    # вычисление координат двух векторов, являющихся сторонам прямоугольника
-        edge1 = np.int0((box[1][0] - box[0][0], box[1][1] - box[0][1]))
-        edge2 = np.int0((box[2][0] - box[1][0], box[2][1] - box[1][1]))
+def rotate_contours_to_horizon(contours, polygon):
+    rotated = []
+    for contour in contours:
+        rect = cv2.minAreaRect(contour)
+        if rect[1][0] < rect[1][1]:
+            angle = -rect[2] - 90
+        else:
+            angle = -rect[2] - 180
 
-    # выясняем какой вектор больше
-        usedEdge = edge1
-        if cv.norm(edge2) > cv.norm(edge1):
-            usedEdge = edge2
-        reference = (1, 0)  # горизонтальный вектор, задающий горизонт
+        #angle = -angle
+        M = cv2.moments(contour)
+        cx = int(M['m10'] / M['m00'])
+        cy = int(M['m01'] / M['m00'])
 
-    # вычисляем угол между самой длинной стороной прямоугольника и горизонтом
-        angle = 180.0 / math.pi * math.acos(
-            (reference[0] * usedEdge[0] + reference[1] * usedEdge[1]) / (cv.norm(reference) * cv.norm(usedEdge)))
+        cnt_norm = contour - [cx, cy]
 
-        if area > 1000:
-            cv.drawContours(img, cnt, -1, (255, 0, 0), 2)  # рисуем прямоугольник
-            cv.drawContours(img, [box], -1, (255, 0, 0), 2)  # рисуем прямоугольник
-            cv.circle(img, center, 5, color_yellow, 2)  # рисуем маленький кружок в центре прямоугольника
-        # выводим в кадр величину угла наклона
-            cv.putText(img, "%d" % int(angle), (center[0] + 20, center[1] - 20),
-                   cv.FONT_HERSHEY_SIMPLEX, 1, color_yellow, 2)
+        coordinates = cnt_norm[:, 0, :]
+        xs, ys = coordinates[:, 0], coordinates[:, 1]
+        thetas, rhos = cart2pol(xs, ys)
 
-        cv.imshow('contours', img)
+        thetas = np.rad2deg(thetas)
+        thetas = (thetas + angle) % 360
+        thetas = np.deg2rad(thetas)
 
-    cv.waitKey()
-    cv.destroyAllWindows()
+        xs, ys = pol2cart(thetas, rhos)
+
+        cnt_norm[:, 0, 0] = xs
+        cnt_norm[:, 0, 1] = ys
+
+        cnt_rotated = cnt_norm + [cx, cy]
+        cnt_rotated = cnt_rotated.astype(np.int32)
+        rotated.append(cnt_rotated)
+
+    rect = cv2.minAreaRect(polygon)
+    if (rect[1][0] < rect[1][1]):
+        angle = -rect[2] - 90
+    else:
+        angle = -rect[2] - 180
+
+    # angle = -angle
+    M = cv2.moments(polygon)
+    cx = int(M['m10'] / M['m00'])
+    cy = int(M['m01'] / M['m00'])
+
+    cnt_norm = polygon - [cx, cy]
+
+    coordinates = cnt_norm[:, 0, :]
+    xs, ys = coordinates[:, 0], coordinates[:, 1]
+    thetas, rhos = cart2pol(xs, ys)
+
+    thetas = np.rad2deg(thetas)
+    thetas = (thetas + angle) % 360
+    thetas = np.deg2rad(thetas)
+
+    xs, ys = pol2cart(thetas, rhos)
+
+    cnt_norm[:, 0, 0] = xs
+    cnt_norm[:, 0, 1] = ys
+
+    cnt_rotated = cnt_norm + [cx, cy]
+    cnt_rotated = cnt_rotated.astype(np.int32)
+
+    return rotated, cnt_rotated

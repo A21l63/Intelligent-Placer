@@ -2,7 +2,8 @@ import cv2
 
 
 class Contour:
-    def __init__(self, contour):
+    def __init__(self, contour, x, y, ang):
         self.contour = contour
-        self.area = cv2.contourArea(contour)
-        self.radius = cv2.minEnclosingCircle(contour)[1]
+        self.x = x
+        self.y = y
+        self.ang = ang
